@@ -1,0 +1,114 @@
+/*
+// Callback para eventos do SPP (Serial Port Profile)
+static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param){
+    switch (event) {
+    case ESP_SPP_INIT_EVT:
+        ESP_LOGI(SPP_TAG, "ESP_SPP_INIT_EVT");
+        // Inicia o servidor Bluetooth
+        esp_spp_start_srv(ESP_SPP_SEC_NONE, ESP_SPP_ROLE_SLAVE, 0, DEVICE_NAME);
+        break;
+    case ESP_SPP_DISCOVERY_COMP_EVT:
+        ESP_LOGI(SPP_TAG, "ESP_SPP_DISCOVERY_COMP_EVT");
+        break;
+    case ESP_SPP_OPEN_EVT:
+        // Este evento ocorre quando VOCÊ inicia a conexão (cliente). 
+        // Como somos servidor, usamos o SRV_OPEN_EVT abaixo.
+        break;
+    case ESP_SPP_CLOSE_EVT:
+        ESP_LOGI(SPP_TAG, "Cliente desconectado");
+        is_connected = false;
+        break;
+    case ESP_SPP_START_EVT:
+        ESP_LOGI(SPP_TAG, "Servidor SPP iniciado");
+        // Torna o dispositivo visível
+        esp_bt_dev_set_device_name(DEVICE_NAME);
+        esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
+        break;
+    case ESP_SPP_CL_INIT_EVT:
+        ESP_LOGI(SPP_TAG, "ESP_SPP_CL_INIT_EVT");
+        break;
+    case ESP_SPP_SRV_OPEN_EVT:
+        ESP_LOGI(SPP_TAG, "Cliente conectado!");
+        // Salva o handle da conexão para usar no envio
+        connection_handle = param->srv_open.handle;
+        is_connected = true;
+        break;
+    default:
+        break;
+    }
+}
+
+//Inicializa o bluetooth
+void bt_init(){
+    esp_bredr_tx_power_set(ESP_PWR_LVL_N12, ESP_PWR_LVL_N12);
+    // Inicializa NVS (Necessário para WiFi e Bluetooth)
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
+    // Inicializa o controlador Bluetooth
+    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE)); // Libera memória BLE se usar só Classic
+    
+    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+    if (esp_bt_controller_init(&bt_cfg) != ESP_OK) {
+        ESP_LOGE(SPP_TAG, "Initialize controller failed");
+        return;
+    }
+
+    if (esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT) != ESP_OK) {
+        ESP_LOGE(SPP_TAG, "Enable controller failed");
+        return;
+    }
+
+    // Inicializa o Bluedroid (Stack Bluetooth)
+    if (esp_bluedroid_init() != ESP_OK) {
+        ESP_LOGE(SPP_TAG, "Initialize bluedroid failed");
+        return;
+    }
+
+    if (esp_bluedroid_enable() != ESP_OK) {
+        ESP_LOGE(SPP_TAG, "Enable bluedroid failed");
+        return;
+    }
+
+    // Registra o callback e inicializa o SPP
+    if (esp_spp_register_callback(esp_spp_cb) != ESP_OK) {
+        ESP_LOGE(SPP_TAG, "spp register failed");
+        return;
+    }
+
+    if (esp_spp_init(ESP_SPP_MODE_CB) != ESP_OK) {
+        ESP_LOGE(SPP_TAG, "spp init failed");
+        return;
+    }
+}
+
+// Tarefa para enviar dados periodicamente via bluetooth
+void send_data_task(void *pvParameters)
+{
+    char data_buffer[256]; // Buffer para armazenar a string formatada
+
+    while (1) {
+        // Só envia se houver um cliente conectado
+        if (is_connected) {
+            
+            int len = snprintf(data_buffer, sizeof(data_buffer),
+                "%.1f;%.1f;%.1f;%.1f;%.0f;%.1f;%.1f;%.1f;%.1f\n",
+                press_high, press_extern, press_intern,
+                temperature, humidity, atm_press, altitude,
+                o2, flow
+            );
+
+            // Garante que não enviará mais do que o buffer
+           if (len > 0 && len < sizeof(data_buffer)) {
+               esp_spp_write(connection_handle, len, (uint8_t *)data_buffer);
+            }
+            
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+*/
